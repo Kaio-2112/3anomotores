@@ -1,67 +1,35 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.InputSystem;
 
 public class GameManager : MonoBehaviour
 {
-    public static GameManager Instance;
-
-    public GameState currentState;
-
-    public PlayerInput playerInput;
+    [Header("Configurações de Cena")]
+    [Tooltip("Nome da cena principal de Gameplay")]
+    public string GameplaySceneName = "Gameplay";
+    
+    [Tooltip("Nome da cena de interface (GUI)")]
+    public string GUISceneName = "GUI";
 
     private void Awake()
     {
-        // Singleton
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
+        // Garante que o GameManager não seja destruído ao carregar novas cenas
+        DontDestroyOnLoad(this.gameObject);
     }
 
     private void Start()
     {
-        SetState(GameState.Iniciando);
-        LoadScene("Splash");
+        // Ao iniciar a cena _Boot, carregamos o jogo
+        CarregarJogo();
     }
 
-    public void SetState(GameState newState)
+    public void CarregarJogo()
     {
-        currentState = newState;
-        Debug.Log("Estado atual: " + currentState);
-    }
+        // 1. Carrega a cena de Gameplay como a cena principal (limpa tudo antes)
+        SceneManager.LoadScene(GameplaySceneName, LoadSceneMode.Single);
 
-    public void LoadScene(string sceneName)
-    {
-        SceneManager.LoadScene(sceneName);
-
-        switch (sceneName)
-        {
-            case "Splash":
-                SetState(GameState.Iniciando);
-                break;
-
-            case "MenuPrincipal":
-                SetState(GameState.MenuPrincipal);
-                break;
-
-            case "SampleScene":
-                SetState(GameState.Gameplay);
-                break;
-        }
-    }
-
-    public void AssignInputToPlayer()
-    {
-        if (playerInput != null)
-        {
-            playerInput.ActivateInput();
-            Debug.Log("Input ativado");
-        }
+        // 2. Carrega a cena de GUI de forma aditiva (sobrepondo a Gameplay)
+        SceneManager.LoadScene(GUISceneName, LoadSceneMode.Additive);
+        
+        Debug.Log("Cenas carregadas com sucesso!");
     }
 }
