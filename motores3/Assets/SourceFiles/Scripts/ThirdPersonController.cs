@@ -11,6 +11,12 @@ namespace StarterAssets
 #endif
     public class ThirdPersonController : MonoBehaviour
     {
+        [Header("Configurações Multi-Jogador")]
+        [Tooltip("Defina 1 para Jogador 1 e 2 para Jogador 2")]
+        public int PlayerID = 1;
+        [Tooltip("Aumento de velocidade base e de corrida por moeda coletada")]
+        public float BonusVelocidadePorMoeda = 0.5f;
+
         [Header("Player")]
         [Tooltip("Move speed of the character in m/s")]
         public float MoveSpeed = 2.0f;
@@ -47,7 +53,9 @@ namespace StarterAssets
         [Tooltip("What layers the character uses as ground")]
         public LayerMask GroundLayers;
 
-        [Header("Cinemachine")]
+        [Header("Cinemachine & Câmera")]
+        [Tooltip("Câmera principal associada a este jogador especificamente")]
+        [SerializeField] private GameObject _mainCamera;
         [Tooltip("The follow target set in the Cinemachine Virtual Camera that the camera will follow")]
         public GameObject CinemachineCameraTarget;
         [Tooltip("How far in degrees can you move the camera up")]
@@ -58,15 +66,15 @@ namespace StarterAssets
         public float CameraAngleOverride = 0.0f;
         [Tooltip("For locking the camera position on all axis")]
         public bool LockCameraPosition = false;
-        public Vector2 LookSensitivity = new Vector2(7.5f, 5.0f);
+        public Vector2 LookSensitivity = new Vector2(1.5f, 1.0f);
 
         // cinemachine
         private float _cinemachineTargetYaw;
         private float _cinemachineTargetPitch;
 
-        // Camera starting position and rotation
-        private Vector3 _cameraStartingPosition;
-        private Quaternion _cameraStartingRotation;
+        // Camera starting LOCAL position and rotation (Guarda coordenadas locais para o pivô não soltar do robô)
+        private Vector3 _cameraStartingLocalPosition;
+        private Quaternion _cameraStartingLocalRotation;
 
         public bool IsRespawning { get; set; } = false;
 
@@ -78,9 +86,7 @@ namespace StarterAssets
         private float _verticalVelocity;
         private float _terminalVelocity = 53.0f;
         
-        // --- ADICIONADO PARA A ATIVIDADE ---
         private int _moedasColetadas = 0;
-        // ------------------------------------
 
         // timeout deltatime
         private float _jumpTimeoutDelta;
@@ -99,7 +105,6 @@ namespace StarterAssets
         private Animator _animator;
         private CharacterController _controller;
         private StarterAssetsInputs _input;
-        private GameObject _mainCamera;
 
         private const float _threshold = 0.01f;
         private bool _hasAnimator;
@@ -109,7 +114,7 @@ namespace StarterAssets
             get
             {
 #if ENABLE_INPUT_SYSTEM
-                return _playerInput.currentControlScheme == "KeyboardMouse";
+                return _playerInput != null && _playerInput.currentControlScheme == "KeyboardMouse";
 #else
                 return false;
 #endif
@@ -118,25 +123,45 @@ namespace StarterAssets
 
         private void Awake()
         {
+            // Busca a câmera REAL da Unity (com o componente Camera), não a Virtual Camera
             if (_mainCamera == null)
             {
-                _mainCamera = GameObject.FindGameObjectWithTag("MainCamera");
+                Camera[] cameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+                foreach (Camera cam in cameras)
+                {
+                    if ((PlayerID == 1 && cam.gameObject.name.Contains("1")) ||
+                        (PlayerID == 2 && cam.gameObject.name.Contains("2")))
+                    {
+                        _mainCamera = cam.gameObject;
+                        break;
+                    }
+                }
+
+                if (_mainCamera == null && Camera.main != null)
+                {
+                    _mainCamera = Camera.main.gameObject;
+                }
             }
         }
 
         private void Start()
         {
-            _cinemachineTargetYaw = CinemachineCameraTarget.transform.rotation.eulerAngles.y;
+            _cinemachineTargetYaw = transform.eulerAngles.y;
             _hasAnimator = TryGetComponent(out _animator);
             _controller = GetComponent<CharacterController>();
             _input = GetComponent<StarterAssetsInputs>();
 #if ENABLE_INPUT_SYSTEM 
             _playerInput = GetComponent<PlayerInput>();
 #endif
+            VincularCinemachine();
             AssignAnimationIDs();
 
-            _cameraStartingPosition = CinemachineCameraTarget.transform.position;
-            _cameraStartingRotation = CinemachineCameraTarget.transform.rotation;
+            if (CinemachineCameraTarget != null)
+            {
+                // Posição local preserva a distância relativa ao corpo do robô
+                _cameraStartingLocalPosition = CinemachineCameraTarget.transform.localPosition;
+                _cameraStartingLocalRotation = CinemachineCameraTarget.transform.localRotation;
+            }
 
             _jumpTimeoutDelta = JumpTimeout;
             _fallTimeoutDelta = FallTimeout;
@@ -144,9 +169,8 @@ namespace StarterAssets
 
         private void Update()
         {
-            _hasAnimator = TryGetComponent(out _animator);
-            JumpAndGravity();
             GroundedCheck();
+            JumpAndGravity();
             Move();
         }
 
@@ -155,16 +179,56 @@ namespace StarterAssets
             CameraRotation();
         }
 
-       private void OnTriggerEnter(Collider other)
+     private void VincularCinemachine()
 {
-    if (other.CompareTag("Coin"))
-    {
-        Destroy(other.gameObject);
-        _moedasColetadas++;
+    string nomeVirtualCam = (PlayerID == 1) ? "PlayerFollowCamera1" : "PlayerFollowCamera2";
+    GameObject vcamObj = GameObject.Find(nomeVirtualCam);
 
-        PlayerOM.AtualizarMoedas(_moedasColetadas);
+    if (vcamObj == null)
+    {
+        Debug.LogError($"[Cinemachine ERRO] Não foi encontrada nenhuma Câmera Virtual chamada '{nomeVirtualCam}' na cena! Verifique o nome na Hierarchy.");
+        return;
     }
-}
+
+    // Garante que o target é o PlayerCameraRoot correto deste robô
+    Transform rootFilho = transform.Find("PlayerCameraRoot");
+    if (rootFilho != null)
+    {
+        CinemachineCameraTarget = rootFilho.gameObject;
+    }
+
+    // Cinemachine v3
+    var vcamV3 = vcamObj.GetComponent<Unity.Cinemachine.CinemachineCamera>();
+    if (vcamV3 != null)
+    {
+        vcamV3.Target.TrackingTarget = CinemachineCameraTarget.transform;
+        vcamV3.Target.LookAtTarget = null;
+        Debug.Log($"<color=green>[Cinemachine SUCESSO]</color> {vcamObj.name} vinculada com sucesso ao {gameObject.name} (P{PlayerID})!");
+        return;
+    }
+
+    // Cinemachine v2
+    var vcamV2 = vcamObj.GetComponent<Unity.Cinemachine.CinemachineVirtualCamera>();
+    if (vcamV2 != null)
+    {
+        vcamV2.Follow = CinemachineCameraTarget.transform;
+        vcamV2.LookAt = null;
+        Debug.Log($"<color=green>[Cinemachine SUCESSO]</color> {vcamObj.name} vinculada com sucesso ao {gameObject.name} (P{PlayerID})!");
+        return;
+    }
+}    private void OnTriggerEnter(Collider other)
+        {
+            if (other.CompareTag("Coin"))
+            {
+                Destroy(other.gameObject);
+                _moedasColetadas++;
+
+                MoveSpeed += BonusVelocidadePorMoeda;
+                SprintSpeed += BonusVelocidadePorMoeda;
+
+                PlayerOM.OnCoinCountChanged?.Invoke(PlayerID, _moedasColetadas);
+            }
+        }
 
         private void AssignAnimationIDs()
         {
@@ -186,34 +250,40 @@ namespace StarterAssets
             }
         }
 
-        private void CameraRotation()
-        {
-            if (IsRespawning)
-            {
-                _cinemachineTargetYaw = 0f;
-                _cinemachineTargetPitch = 0f;
-                CinemachineCameraTarget.transform.position = _cameraStartingPosition;
-                CinemachineCameraTarget.transform.rotation = _cameraStartingRotation;
-                IsRespawning = false;
-                return;
-            }
+       private void CameraRotation()
+{
+    if (IsRespawning)
+    {
+        _cinemachineTargetYaw = transform.eulerAngles.y;
+        _cinemachineTargetPitch = 0f;
+        CinemachineCameraTarget.transform.localPosition = _cameraStartingLocalPosition;
+        CinemachineCameraTarget.transform.localRotation = _cameraStartingLocalRotation;
+        IsRespawning = false;
+        return;
+    }
 
-            if (_input.look.sqrMagnitude >= _threshold && !LockCameraPosition)
-            {
-                float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;
-                _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier * LookSensitivity.x;
-                _cinemachineTargetPitch += _input.look.y * deltaTimeMultiplier * LookSensitivity.y;
-            }
+    // 1. Se o jogador estiver mexendo no analógico/mouse da câmera, controla manualmente
+    if (_input.look.sqrMagnitude >= _threshold && !LockCameraPosition)
+    {
+        float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;
+        _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier * LookSensitivity.x;
+        _cinemachineTargetPitch += _input.look.y * deltaTimeMultiplier * LookSensitivity.y;
+    }
+    // 2. AUTO-ALINHAMENTO: Se estiver andando e sem mexer na câmera, ela gira para ficar atrás do robô
+    else if (_input.move.sqrMagnitude >= _threshold)
+    {
+        // 4.0f é a velocidade de rotação da câmera para acompanhar o personagem
+        _cinemachineTargetYaw = Mathf.LerpAngle(_cinemachineTargetYaw, transform.eulerAngles.y, Time.deltaTime * 4.0f);
+    }
 
-            _cinemachineTargetYaw = ClampAngle(_cinemachineTargetYaw, float.MinValue, float.MaxValue);
-            _cinemachineTargetPitch = ClampAngle(_cinemachineTargetPitch, BottomClamp, TopClamp);
+    _cinemachineTargetYaw = ClampAngle(_cinemachineTargetYaw, float.MinValue, float.MaxValue);
+    _cinemachineTargetPitch = ClampAngle(_cinemachineTargetPitch, BottomClamp, TopClamp);
 
-            CinemachineCameraTarget.transform.rotation = Quaternion.Euler(_cinemachineTargetPitch + CameraAngleOverride, _cinemachineTargetYaw, 0.0f);
-        }
-
+    CinemachineCameraTarget.transform.rotation = Quaternion.Euler(_cinemachineTargetPitch + CameraAngleOverride, _cinemachineTargetYaw, 0.0f);
+}
         private void Move()
         {
-            float targetSpeed = _input.sprint ? SprintSpeed : MoveSpeed;
+            float targetSpeed = _input.sprint ? SprintSpeed : MoveSpeed; 
             if (_input.move == Vector2.zero) targetSpeed = 0.0f;
 
             float currentHorizontalSpeed = new Vector3(_controller.velocity.x, 0.0f, _controller.velocity.z).magnitude;
@@ -237,7 +307,14 @@ namespace StarterAssets
 
             if (_input.move != Vector2.zero)
             {
-                _targetRotation = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + _mainCamera.transform.eulerAngles.y;
+                float targetRotationAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg;
+                
+                if (_mainCamera != null)
+                {
+                    targetRotationAngle += _mainCamera.transform.eulerAngles.y;
+                }
+
+                _targetRotation = targetRotationAngle;
                 float rotation = Mathf.SmoothDampAngle(transform.eulerAngles.y, _targetRotation, ref _rotationVelocity, RotationSmoothTime);
                 transform.rotation = Quaternion.Euler(0.0f, rotation, 0.0f);
             }
