@@ -207,7 +207,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656bu
+  m_ActiveFontFeatures: 6e72656b
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -450,9 +450,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 17111e4963e4f914e831f009836c970e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CoinUIController
-  moedasParaVencer: 7
-  textoMoedasP1: {fileID: 1262281939}
-  textoMoedasP2: {fileID: 755300740}
+  estrelasParaVencer: 7
+  textoEstrelasP1: {fileID: 1262281939}
+  textoEstrelasP2: {fileID: 755300740}
   painelVencedor: {fileID: 399212871}
   textoVencedor: {fileID: 266150351}
 --- !u!1 &755300739
@@ -543,7 +543,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656bu
+  m_ActiveFontFeatures: 6e72656b
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -699,7 +699,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656bu
+  m_ActiveFontFeatures: 6e72656b
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1

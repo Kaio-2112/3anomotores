@@ -4,14 +4,12 @@ using TMPro;
 public class CoinUIController : MonoBehaviour
 {
     [Header("Configurações do Jogo")]
-    [Tooltip("Quantidade de moedas necessárias para vencer o jogo")]
-    [SerializeField] private int moedasParaVencer = 7;
+    [Tooltip("Quantidade de estrelas necessárias para vencer o jogo")]
+    [SerializeField] private int estrelasParaVencer = 7;
 
     [Header("Textos dos Jogadores (UI Split-Screen)")]
-    [Tooltip("Texto da UI posicionado no lado esquerdo da tela (P1)")]
-    [SerializeField] private TextMeshProUGUI textoMoedasP1;
-    [Tooltip("Texto da UI posicionado no lado direito da tela (P2)")]
-    [SerializeField] private TextMeshProUGUI textoMoedasP2;
+    [SerializeField] private TextMeshProUGUI textoEstrelasP1;
+    [SerializeField] private TextMeshProUGUI textoEstrelasP2;
 
     [Header("Painel de Vitória")]
     [SerializeField] private GameObject painelVencedor;
@@ -21,7 +19,6 @@ public class CoinUIController : MonoBehaviour
 
     private void Start()
     {
-        // Garante a escala de tempo normal ao iniciar
         Time.timeScale = 1f;
 
         if (painelVencedor != null)
@@ -35,17 +32,17 @@ public class CoinUIController : MonoBehaviour
 
     private void OnEnable()
     {
-        PlayerOM.OnCoinCountChanged += OnCoinCollected;
+        PlayerOM.OnStarCountChanged += OnStarCollected;
         PlayerOM.OnGameOver += ExibirVencedor;
     }
 
     private void OnDisable()
     {
-        PlayerOM.OnCoinCountChanged -= OnCoinCollected;
+        PlayerOM.OnStarCountChanged -= OnStarCollected;
         PlayerOM.OnGameOver -= ExibirVencedor;
     }
 
-    private void OnCoinCollected(int playerID, int totalAtual)
+    private void OnStarCollected(int playerID, int totalAtual)
     {
         if (_jogoFinalizado) return;
 
@@ -58,11 +55,10 @@ public class CoinUIController : MonoBehaviour
             AtualizarTextoP2(totalAtual);
         }
 
-        // Condição de vitória ao atingir a meta de 7 moedas
-        if (totalAtual >= moedasParaVencer)
+        if (totalAtual >= estrelasParaVencer)
         {
             _jogoFinalizado = true;
-            string mensagemVitoria = $"JOGADOR {playerID} VENCEU!";
+            string mensagemVitoria = $"JOGADOR {playerID} É O GRANDE VENCEDOR DO JOGO!";
             
             ExibirVencedor(mensagemVitoria);
             PlayerOM.OnGameOver?.Invoke(mensagemVitoria);
@@ -71,17 +67,17 @@ public class CoinUIController : MonoBehaviour
 
     private void AtualizarTextoP1(int total)
     {
-        if (textoMoedasP1 != null)
+        if (textoEstrelasP1 != null)
         {
-            textoMoedasP1.text = $"P1 Moedas: {total}/{moedasParaVencer}";
+            textoEstrelasP1.text = $"P1:  {total}/{estrelasParaVencer}";
         }
     }
 
     private void AtualizarTextoP2(int total)
     {
-        if (textoMoedasP2 != null)
+        if (textoEstrelasP2 != null)
         {
-            textoMoedasP2.text = $"P2 Moedas: {total}/{moedasParaVencer}";
+            textoEstrelasP2.text = $"P2: {total}/{estrelasParaVencer}";
         }
     }
 
@@ -91,8 +87,6 @@ public class CoinUIController : MonoBehaviour
         {
             textoVencedor.text = mensagem;
             painelVencedor.SetActive(true);
-
-            // Congela o jogo ao finalizar
             Time.timeScale = 0f;
         }
     }
