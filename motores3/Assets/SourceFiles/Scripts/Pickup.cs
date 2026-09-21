@@ -3,6 +3,11 @@ using StarterAssets;
 
 public class Pickup : MonoBehaviour
 {
+    public enum TipoColetavel { Estrela, Moeda }
+
+    [Header("Tipo de Coletável")]
+    public TipoColetavel tipo = TipoColetavel.Estrela;
+
     [Header("Effects")]
     public GameObject particleEffectPrefab;
 
@@ -40,7 +45,14 @@ public class Pickup : MonoBehaviour
 
             if (player != null)
             {
-                player.ColetarEstrela();
+                if (tipo == TipoColetavel.Estrela)
+                {
+                    player.ColetarEstrela();
+                }
+                else if (tipo == TipoColetavel.Moeda)
+                {
+                    player.ColetarMoeda();
+                }
 
                 if (particleEffectPrefab != null)
                 {

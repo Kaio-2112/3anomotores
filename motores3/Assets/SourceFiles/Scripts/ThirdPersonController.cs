@@ -17,6 +17,10 @@ namespace StarterAssets
         [Tooltip("Aumento de velocidade base e de corrida por moeda coletada")]
         public float BonusVelocidadePorMoeda = 0.5f;
 
+        [Header("Tags dos Coletáveis")]
+        public string TagMoeda = "Coin";
+        public string TagEstrela = "Star";
+
         [Header("Player")]
         public float MoveSpeed = 2.0f;
         public float SprintSpeed = 5.335f;
@@ -154,6 +158,36 @@ namespace StarterAssets
             CameraRotation();
         }
 
+        // --- MÉTODOS DE COLETA DE ITENS ---
+        public void ColetarMoeda()
+        {
+            _moedasColetadas++;
+            MoveSpeed += BonusVelocidadePorMoeda;
+            SprintSpeed += BonusVelocidadePorMoeda;
+
+            PlayerOM.OnCoinCountChanged?.Invoke(PlayerID, _moedasColetadas);
+        }
+
+        public void ColetarEstrela()
+        {
+            _estrelasColetadas++;
+            PlayerOM.OnStarCountChanged?.Invoke(PlayerID, _estrelasColetadas);
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (other.CompareTag(TagMoeda))
+            {
+                Destroy(other.gameObject);
+                ColetarMoeda();
+            }
+            else if (other.CompareTag(TagEstrela))
+            {
+                Destroy(other.gameObject);
+                ColetarEstrela();
+            }
+        }
+
         private void VincularCinemachine()
         {
             string nomeVirtualCam = (PlayerID == 1) ? "PlayerFollowCamera1" : "PlayerFollowCamera2";
@@ -186,27 +220,6 @@ namespace StarterAssets
                 vcamV2.LookAt = null;
                 return;
             }
-        }
-
-        private void OnTriggerEnter(Collider other)
-        {
-            // Moeda apenas concede aumento de velocidade
-            if (other.CompareTag("Coin"))
-            {
-                Destroy(other.gameObject);
-                _moedasColetadas++;
-
-                MoveSpeed += BonusVelocidadePorMoeda;
-                SprintSpeed += BonusVelocidadePorMoeda;
-
-                PlayerOM.OnCoinCountChanged?.Invoke(PlayerID, _moedasColetadas);
-            }
-        }
-
-        public void ColetarEstrela()
-        {
-            _estrelasColetadas++;
-            PlayerOM.OnStarCountChanged?.Invoke(PlayerID, _estrelasColetadas);
         }
 
         private void AssignAnimationIDs()
